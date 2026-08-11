@@ -1,24 +1,56 @@
 import { PrismaClient } from "@/generated/prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
-/** Vercel's Postgres integrations expose different names; DATABASE_URL wins. */
+const pick = (...names: string[]) => {
+  for (const name of names) {
+    const value = process.env[name]?.trim();
+    if (value) return { name, value };
+  }
+  return null;
+};
+
+/** Names that look like connection strings but must never serve traffic:
+ *  the migration shadow database is empty by design, and direct/unpooled URLs
+ *  bypass the pooler. Connecting to one of these silently reads the wrong
+ *  database, so they are excluded rather than merely deprioritised. */
+const NOT_RUNTIME = /SHADOW|DIRECT|UNPOOLED|NON_POOLING|MIGRAT/i;
+
+/** Vercel storage integrations prefix their variables with the store name, so
+ *  a Prisma Postgres store called "bicassets" produces
+ *  bicassets_PRISMA_DATABASE_URL rather than DATABASE_URL. Explicit names win;
+ *  a prefixed one is accepted rather than leaving the app dead on arrival. */
 function connectionString() {
-  return (
-    process.env.DATABASE_URL ??
-    process.env.POSTGRES_PRISMA_URL ??
-    process.env.POSTGRES_URL ??
-    null
-  );
+  const explicit = pick("DATABASE_URL", "POSTGRES_PRISMA_URL", "POSTGRES_URL");
+  if (explicit) return explicit;
+
+  const suffixed = Object.keys(process.env)
+    .filter((k) => /_(PRISMA_)?(DATABASE|POSTGRES)_URL$/.test(k))
+    .filter((k) => !NOT_RUNTIME.test(k))
+    .sort(); // deterministic when a project has several stores attached
+  return suffixed.length ? pick(...suffixed) : null;
 }
 
 function create(): PrismaClient {
-  const url = connectionString();
-  if (!url) {
+  const found = connectionString();
+  if (!found) {
     throw new Error(
-      "DATABASE_URL is not set. On Vercel, check the variable is exposed to " +
-        "the environment being deployed (Production/Preview/Development).",
+      "No database connection string found. Set DATABASE_URL (checked also: " +
+        "POSTGRES_PRISMA_URL, POSTGRES_URL, and any *_DATABASE_URL from a " +
+        "Vercel storage integration). On Vercel, confirm the variable is " +
+        "exposed to the environment being deployed.",
     );
   }
+  const url = found.value;
+
+  // Names the source without ever printing the credential, so a
+  // wrong-database problem is one log line rather than an investigation.
+  let where = "unknown host";
+  try {
+    where = url.startsWith("prisma+postgres://")
+      ? "prisma postgres (pooled)"
+      : new URL(url).host;
+  } catch {}
+  console.log(`[db] using ${found.name} -> ${where}`);
   // Prisma Postgres (local `prisma dev` and the hosted product) speaks the
   // prisma+postgres protocol; anything else is a plain Postgres connection.
   return url.startsWith("prisma+postgres://")
