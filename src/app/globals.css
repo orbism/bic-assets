@@ -1,26 +1,109 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+/* Three states: an explicit choice stamps .dark or .light on <html> during SSR;
+   with neither, prefers-color-scheme decides. Tailwind's dark variant has to
+   agree with that, so it covers the system case as well as the .dark class. */
+@custom-variant dark {
+  &:where(.dark, .dark *) {
+    @slot;
+  }
+  @media (prefers-color-scheme: dark) {
+    &:where(html:not(.light) *, html:not(.light)) {
+      @slot;
+    }
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Light is warm off-white, never stark. Dark is slate lifted off black, with
+   each surface step a visible tier and near-white text. Declared once per
+   token: light-dark() resolves against the color-scheme set just below. */
+:root {
+  color-scheme: light dark;
+
+  --bg: light-dark(#f6f4f0, #1b212b);
+  --surface: light-dark(#fffdfa, #262e3c);
+  --surface-2: light-dark(#efece6, #313b4b);
+  --border: light-dark(#e3ded4, #414d60);
+  --text: light-dark(#2f2b26, #eef2f8);
+  --muted: light-dark(#736d63, #aab6c6);
+  --accent: light-dark(#55668f, #a9beff);
+  --accent-soft: light-dark(#e6eaf3, #33405c);
+  --good: light-dark(#4f7d5e, #8ed7a4);
+  --bad: light-dark(#9c5a52, #f2a89e);
+  --warn: light-dark(#927a3f, #f0cb80);
+  /* Foreground for filled accent surfaces. */
+  --on-accent: light-dark(#ffffff, #1b212b);
+}
+
+html.light {
+  color-scheme: light;
+}
+html.dark {
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-text: var(--text);
+  --color-muted: var(--muted);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+  --color-warn: var(--warn);
+  --color-on-accent: var(--on-accent);
+
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+}
+
+@layer base {
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-synthesis-weight: none;
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection {
+    background: var(--accent-soft);
+  }
+  * {
+    border-color: var(--border);
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-2xl border bg-surface;
+  }
+  .input {
+    @apply h-9 rounded-xl border bg-surface px-3 text-sm text-text
+      placeholder:text-muted focus:outline-none focus-visible:outline-2;
+  }
+  .btn {
+    @apply inline-flex h-9 items-center gap-1.5 rounded-xl border bg-surface px-3
+      text-sm font-medium transition-colors hover:bg-surface-2
+      disabled:opacity-50 disabled:pointer-events-none;
+  }
+  .btn-primary {
+    @apply border-transparent bg-accent text-on-accent hover:opacity-90;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border bg-surface-2 px-2
+      py-0.5 text-xs text-muted;
+  }
+}
+
+/* Gentle scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
 }

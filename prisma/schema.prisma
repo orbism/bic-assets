@@ -1,0 +1,269 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ---------- Records ----------
+
+enum Sheet {
+  MEMECOIN
+  CELEBRITY_COIN
+  NFT
+  COLLECTION
+  PROVFI
+}
+
+/// Free-text yes/no answers are parsed into this enum for filtering.
+/// The verbatim source string is always kept alongside it in `flagsRaw`.
+enum YesNo {
+  YES
+  NO
+  UNKNOWN
+  NA
+}
+
+/// One row from any sheet. Shared fields are columns; sheet-specific
+/// fields live on the 1:1 detail models below.
+model Artefact {
+  id        String  @id @default(cuid())
+  sheet     Sheet
+  /// URL segment, unique per sheet
+  slug      String
+  name      String
+  /// Collections only: distinguishes plain collection rows from celebrity NFT projects
+  rowType   String?
+
+  ticker        String?
+  creatorName   String?
+  creatorSocial String?
+  creatorAddr   String?
+  category      String?
+  note          String?
+
+  chains    String[] @default([])
+  contracts String[] @default([])
+
+  websiteUrl     String?
+  xUrl           String?
+  tgUrl          String?
+  discordUrl     String?
+  kymUrl         String?
+  imageUrl       String?
+  marketplaceUrl String?
+  explorerUrl    String?
+  provenanceUrl  String?
+
+  launchDate  DateTime?
+  launchRaw   String?
+  description String?
+  tagsCategory String[] @default([])
+  tagsProvenance String[] @default([])
+
+  /// Parsed yes/no answers, keyed by canonical question id
+  flags    Json @default("{}")
+  /// Verbatim source strings for every parsed flag
+  flagsRaw Json @default("{}")
+
+  /// Untouched original CSV row, kept forever
+  sourceRow   Json?
+  sourceSheet String?
+  sourceLine  Int?
+  needsReview Boolean @default(false)
+
+  memecoin   MemecoinDetail?
+  nft        NftDetail?
+  collection CollectionDetail?
+  provfi     ProvfiDetail?
+  assets     ArtefactAsset[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([sheet, slug])
+  @@index([name])
+  @@index([sheet, name])
+}
+
+/// Shared by MEMECOIN and CELEBRITY_COIN
+model MemecoinDetail {
+  artefactId String   @id
+  artefact   Artefact @relation(fields: [artefactId], references: [id], onDelete: Cascade)
+
+  decimals         Int?
+  provenanceGrade  String?
+  memePopularity   String?
+  fairLaunchScore  String?
+  athMarketcap     String?
+  overallGrade     String?
+  projectSocials   String?
+  provenanceProof  String?
+  onboardingAgents String?
+  listedOnIndex    String?
+  tokenSlug        String?
+  blockOrigin      String[] @default([])
+  fractionalizedOf String?
+}
+
+model NftDetail {
+  artefactId String   @id
+  artefact   Artefact @relation(fields: [artefactId], references: [id], onDelete: Cascade)
+
+  tokenAddress    String?
+  lastSalePrice   String?
+  lastSaleDate    String?
+  currentOwner    String?
+  currentOwnerAddr String?
+  firstSalePrice  String?
+  firstSaleDate   String?
+  initialOwner    String?
+  initialOwnerAddr String?
+  memeId          String?
+}
+
+model CollectionDetail {
+  artefactId String   @id
+  artefact   Artefact @relation(fields: [artefactId], references: [id], onDelete: Cascade)
+
+  derivativeOf    String?
+  provenanceLinks String?
+  projectName     String?
+  subjectXUrl     String?
+}
+
+model ProvfiDetail {
+  artefactId String   @id
+  artefact   Artefact @relation(fields: [artefactId], references: [id], onDelete: Cascade)
+
+  memeId     String?
+  tokenId    String?
+  tokenProxy String?
+}
+
+// ---------- Media ----------
+
+enum AssetKind {
+  IMAGE
+  VIDEO
+}
+
+enum AssetSource {
+  LOCAL
+  BLOB
+}
+
+/// A file on disk under /public or in blob storage. One row per artwork,
+/// not per file: size variants collapse into `thumbPath`.
+model Asset {
+  id        String      @id @default(cuid())
+  /// Servable URL: "/assets/…" for local files, absolute for blob storage.
+  path      String      @unique
+  kind      AssetKind
+  source    AssetSource @default(LOCAL)
+  /// Smaller still used for the grid and as the video poster.
+  thumbPath String?
+  label     String
+  /// Folder the file came from, used to group the media page.
+  folder    String?
+  bytes     Int?
+  /// Set when a previously scanned local file is no longer on disk.
+  missing   Boolean     @default(false)
+
+  links     ArtefactAsset[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([folder])
+}
+
+enum LinkOrigin {
+  AUTO
+  MANUAL
+}
+
+/// Join row. Detaching sets `dismissed` rather than deleting, so a re-scan
+/// does not resurrect a link an admin deliberately removed.
+model ArtefactAsset {
+  artefactId String
+  artefact   Artefact   @relation(fields: [artefactId], references: [id], onDelete: Cascade)
+  assetId    String
+  asset      Asset      @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  order      Int        @default(0)
+  origin     LinkOrigin @default(AUTO)
+  dismissed  Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+
+  @@id([artefactId, assetId])
+  @@index([assetId])
+  @@index([artefactId, dismissed])
+}
+
+// ---------- Users ----------
+
+enum Role {
+  ADMIN
+  EDITOR
+  VIEWER
+}
+
+model User {
+  id        String     @id @default(cuid())
+  label     String?
+  role      Role       @default(VIEWER)
+  disabled  Boolean    @default(false)
+  identities Identity[]
+  audits    AuditLog[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+enum IdentityKind {
+  EMAIL
+  WALLET
+}
+
+/// A user may link one email and one or more wallets to the same account.
+model Identity {
+  id           String       @id @default(cuid())
+  userId       String
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind         IdentityKind
+  /// email address (lowercased) or EVM address (lowercased)
+  value        String
+  passwordHash String?
+  createdAt    DateTime     @default(now())
+
+  @@unique([kind, value])
+  @@index([userId])
+}
+
+// ---------- Audit ----------
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  IMPORT
+  LOGIN
+  USER_CHANGE
+}
+
+model AuditLog {
+  id        String      @id @default(cuid())
+  userId    String?
+  user      User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  actorLabel String?
+  action    AuditAction
+  entity    String
+  entityId  String?
+  /// full row state before the change - this is what makes deletes recoverable
+  before    Json?
+  after     Json?
+  createdAt DateTime    @default(now())
+
+  @@index([entity, entityId])
+  @@index([createdAt])
+}
