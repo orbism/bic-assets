@@ -2,19 +2,28 @@ import { hash } from "bcryptjs";
 import { db } from "@/lib/db";
 import type { IdentityKind } from "@/generated/prisma/enums";
 
+/** ADMIN_WALLET accepts a comma-separated list; each entry is its own admin.
+ *  ADMIN_EMAIL stays single, since its password comes from one variable. */
+export const adminWallets = () =>
+  (process.env.ADMIN_WALLET ?? "")
+    .split(",")
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+
 /**
- * Create the bootstrap admin from the environment the first time it signs in,
+ * Create a bootstrap admin from the environment the first time it signs in,
  * so setting ADMIN_EMAIL / ADMIN_WALLET is enough on a fresh deploy and does
- * not also require running the seed script. Only ever matches the exact value
- * in the environment, and only ever creates that one account.
+ * not also require running the seed script. Only ever matches a value present
+ * in the environment, and only ever creates admins named there.
  */
 async function bootstrapFromEnv(kind: IdentityKind, value: string) {
-  const { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_WALLET } = process.env;
+  const { ADMIN_EMAIL, ADMIN_PASSWORD } = process.env;
 
-  const expected = (
-    kind === "WALLET" ? ADMIN_WALLET : ADMIN_EMAIL
-  )?.trim().toLowerCase();
-  if (!expected || expected !== value) return null;
+  const allowed =
+    kind === "WALLET"
+      ? adminWallets()
+      : [ADMIN_EMAIL?.trim().toLowerCase()].filter(Boolean);
+  if (!allowed.includes(value)) return null;
 
   // An email admin without a password could never sign in anyway.
   if (kind === "EMAIL" && !ADMIN_PASSWORD) return null;

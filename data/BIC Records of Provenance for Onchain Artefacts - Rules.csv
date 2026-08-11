@@ -1,0 +1,22 @@
+"Hello everyone. This google sheet was created to keep track of all memes that have been minted as NFTs or tokens, as well as all additional NFTs the meme creators have minted as derivatives of their work, and any other culturally impactful stories that have been put onchain "
+"This document is maintained by the Bureau of Internet Culture, a collective of people who collect memes. We believe that internet memes should be created natively as digital objects to track their provenance. Please help us expand this list by offering any knowledge you may have!"
+TOKENS SHOULD ONLY BE ADDED IF THEY HAVE SOME TANGIBLE CONNECTION TO THE CREATOR OF THEIR IMAGE. YOUR STANDARD MEMECOIN DOES NOT BELONG HERE.
+"This document has several sheets, breaking entries down into different categories."
+"Most memes are minted as 1-of-1 artworks, which is a format closely analogous to what we are used to in the traditional art world. However, this is not always the case."
+"Some memes have their 'first editions' minted as open editions. Other memes may have been 'officially' minted in the context of their first appearance - for example, both pepe and trollface were minted in their original comic strips."
+"With this said, the ontology of memes, art and ownership are still very much up for debate. This is what we hope to help explore in the process of catalouging these meme NFTs."
+
+[need to go over nuances of each question]
+
+
+
+
+
+
+
+
+
+Legend
+"Meme name: The most recognized name(s) of the meme. The name is hyperlinked to its KYM entry if it exists, and otherwise to another documenting or originating source. A meme must have a single entry - additional related images from the same creator are in the ""official alternatives & derivatives"" sheet. The only exception to this is Gigachad, as both linked images are equally recognizeable."
+"Creator name: The real name or handle of the creator. This is hyperlinked to an existing social media they control, which may in some cases be a blog."
+Price of last sale: Manually updated. Usually quoted in eth as this is the sale currency for most meme NFTs. This is hyperlinked to a marketplace listing of the token. This link typically includes the contract address and ID of the token.

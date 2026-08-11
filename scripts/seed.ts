@@ -1,6 +1,8 @@
 import "dotenv/config";
 import { hash } from "bcryptjs";
+import { isAddress } from "viem";
 import { db } from "../src/lib/db";
+import { adminWallets } from "../src/lib/auth";
 import { runImport } from "../src/lib/import";
 import type { Role } from "../src/generated/prisma/enums";
 
@@ -41,13 +43,18 @@ async function ensureUser(
 
 async function main() {
   console.log("Users:");
-  const { ADMIN_EMAIL, ADMIN_PASSWORD, ADMIN_WALLET, SEED_USERS } = process.env;
+  const { ADMIN_EMAIL, ADMIN_PASSWORD, SEED_USERS } = process.env;
 
   if (ADMIN_EMAIL) {
     if (!ADMIN_PASSWORD) throw new Error("ADMIN_EMAIL set without ADMIN_PASSWORD");
     await ensureUser("EMAIL", ADMIN_EMAIL, "ADMIN", ADMIN_PASSWORD);
   }
-  if (ADMIN_WALLET) await ensureUser("WALLET", ADMIN_WALLET, "ADMIN");
+  for (const wallet of adminWallets()) {
+    if (!isAddress(wallet)) {
+      throw new Error(`ADMIN_WALLET contains an invalid EVM address: ${wallet}`);
+    }
+    await ensureUser("WALLET", wallet, "ADMIN");
+  }
 
   for (const entry of (SEED_USERS ?? "").split(",").filter(Boolean)) {
     const [kind, value, role] = entry.split(":").map((s) => s.trim());
